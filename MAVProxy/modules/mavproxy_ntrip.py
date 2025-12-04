@@ -2,6 +2,8 @@
 send NTRIP data to flight controller
 """
 
+import json
+import os
 import random
 import time
 
@@ -23,12 +25,18 @@ class NtripModule(mp_module.MPModule):
              ('logfile', str, None),
              ('sendalllinks', bool, False),
              ('frag_drop_pct', float, 0),
-             ('sendmul', int, 1)])
+             ('sendmul', int, 1),
+             ('autostart', bool, False)])
         self.add_command('ntrip', self.cmd_ntrip, 'NTRIP control',
                          ["<status>",
                           "<start>",
                           "<stop>",
+                          "<save>",
+                          "<load>",
                           "set (NTRIPSETTING)"])
+        
+        # Config file path
+        self.config_file = os.path.join(os.path.expanduser("~"), ".mavproxy_ntrip.json")
         self.add_completion_function('(NTRIPSETTING)',
                                      self.ntrip_settings.completion)
         self.pos = None
@@ -43,6 +51,14 @@ class NtripModule(mp_module.MPModule):
         self.logfile = None
         self.id_counts = {}
         self.last_by_id = {}
+        
+        # Auto-load saved settings
+        self._load_settings()
+        
+        # Auto-start if enabled
+        if self.ntrip_settings.autostart:
+            self.start_pending = True
+            print("NTRIP: autostart enabled, waiting for position")
 
     def mavlink_packet(self, msg):
         '''handle an incoming mavlink packet'''
@@ -133,15 +149,20 @@ class NtripModule(mp_module.MPModule):
     def cmd_ntrip(self, args):
         '''ntrip command handling'''
         if len(args) <= 0:
-            print("Usage: ntrip <start|stop|status|set>")
+            print("Usage: ntrip <start|stop|status|save|load|set>")
             return
         if args[0] == "start":
             self.cmd_start()
-        if args[0] == "stop":
+        elif args[0] == "stop":
             self.ntrip = None
             self.start_pending = False
         elif args[0] == "status":
             self.ntrip_status()
+        elif args[0] == "save":
+            self._save_settings()
+        elif args[0] == "load":
+            self._load_settings()
+            print("NTRIP settings loaded")
         elif args[0] == "set":
             self.ntrip_settings.command(args[1:])
 
@@ -184,6 +205,38 @@ class NtripModule(mp_module.MPModule):
         self.start_pending = False
         self.last_rate = time.time()
         self.rate_total = 0
+
+    def _save_settings(self):
+        '''Save settings to config file'''
+        config = {
+            'caster': self.ntrip_settings.caster,
+            'port': self.ntrip_settings.port,
+            'username': self.ntrip_settings.username,
+            'password': self.ntrip_settings.password,
+            'mountpoint': self.ntrip_settings.mountpoint,
+            'sendalllinks': self.ntrip_settings.sendalllinks,
+            'sendmul': self.ntrip_settings.sendmul,
+            'autostart': self.ntrip_settings.autostart
+        }
+        try:
+            with open(self.config_file, 'w') as f:
+                json.dump(config, f, indent=2)
+            print("NTRIP settings saved to %s" % self.config_file)
+        except Exception as e:
+            print("Failed to save NTRIP settings: %s" % e)
+
+    def _load_settings(self):
+        '''Load settings from config file'''
+        if not os.path.exists(self.config_file):
+            return
+        try:
+            with open(self.config_file, 'r') as f:
+                config = json.load(f)
+            for key, value in config.items():
+                if hasattr(self.ntrip_settings, key):
+                    setattr(self.ntrip_settings, key, value)
+        except Exception as e:
+            print("Failed to load NTRIP settings: %s" % e)
 
 
 def init(mpstate):
