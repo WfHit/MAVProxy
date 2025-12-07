@@ -90,7 +90,7 @@ class LauncherFrame(wx.Frame):
         super(LauncherFrame, self).__init__(
             None,
             title="Launcher",
-            style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX)
+            style=wx.DEFAULT_FRAME_STYLE
         )
         self.cmd_queue = cmd_queue
         self.status_queue = status_queue
@@ -113,10 +113,10 @@ class LauncherFrame(wx.Frame):
 
         self._create_ui()
         
-        # Set to full screen size (480x280)
+        # Set initial size (480x280) but allow resize/maximize
         self.SetSize(wx.Size(MAX_WIDTH, MAX_HEIGHT))
         self.SetMinSize(wx.Size(MAX_WIDTH, MAX_HEIGHT))
-        self.SetMaxSize(wx.Size(MAX_WIDTH, MAX_HEIGHT))
+        self.Centre()
 
         # Timer for updates
         self.timer = wx.Timer(self)

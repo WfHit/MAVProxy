@@ -121,19 +121,22 @@ class UWBAnchorFrame(wx.Frame):
         super(UWBAnchorFrame, self).__init__(
             None, 
             title="UWB Anchor", 
-            size=(SMALL_SCREEN_WIDTH, SMALL_SCREEN_HEIGHT)
+            size=(SMALL_SCREEN_WIDTH, SMALL_SCREEN_HEIGHT),
+            style=wx.DEFAULT_FRAME_STYLE
         )
+        self.SetMinSize((SMALL_SCREEN_WIDTH, SMALL_SCREEN_HEIGHT))
+        self.Centre()
         self.cmd_queue = cmd_queue
         self.data_queue = data_queue
 
         self.anchors = []
         self.origin = None
 
-        # Smaller font for compact display
-        self.small_font = wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        self.mono_font = wx.Font(7, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        self.bold_font = wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
-        self.large_font = wx.Font(9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        # Fonts matching launcher GUI style
+        self.small_font = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.mono_font = wx.Font(11, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.bold_font = wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        self.large_font = wx.Font(12, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
 
         self._create_ui()
 
