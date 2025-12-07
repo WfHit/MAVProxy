@@ -107,27 +107,15 @@ class LauncherFrame(wx.Frame):
         # Track loaded state
         self.loaded_modules = set()
 
-        # Fonts optimized for small screen
-        self.small_font = wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        self.bold_font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        # Fonts for screen
+        self.small_font = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.bold_font = wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
 
         self._create_ui()
         
-        # Fit to content but limit to max screen size
-        self.Fit()
-        size = self.GetSize()
-        # Ensure minimum valid size
-        if size.width < 100:
-            size.width = 150
-        if size.height < 50:
-            size.height = 180
-        # Limit to max screen size
-        if size.width > MAX_WIDTH:
-            size.width = MAX_WIDTH
-        if size.height > MAX_HEIGHT:
-            size.height = MAX_HEIGHT
-        self.SetSize(size)
-        self.SetMinSize(wx.Size(150, 180))
+        # Set to full screen size (480x280)
+        self.SetSize(wx.Size(MAX_WIDTH, MAX_HEIGHT))
+        self.SetMinSize(wx.Size(MAX_WIDTH, MAX_HEIGHT))
         self.SetMaxSize(wx.Size(MAX_WIDTH, MAX_HEIGHT))
 
         # Timer for updates
@@ -148,46 +136,50 @@ class LauncherFrame(wx.Frame):
         # Title
         title = wx.StaticText(panel, label="Module Launcher")
         title.SetFont(self.bold_font)
-        main_sizer.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 3)
+        main_sizer.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 8)
 
         # Module buttons in a multi-column grid (3 columns)
-        grid_sizer = wx.FlexGridSizer(cols=3, hgap=5, vgap=5)
+        grid_sizer = wx.FlexGridSizer(cols=3, hgap=10, vgap=10)
 
         self.module_btns = {}
         self.status_labels = {}
 
+        # Button size to fill screen: (480-margins)/3 cols ≈ 145px wide
+        btn_width = 145
+        btn_height = 60
+
         for mod_name, display_name, desc in self.modules:
-            # Load/Unload button only (no status label for compact layout)
-            btn = wx.ToggleButton(panel, label=display_name, size=(85, 32))
+            # Load/Unload button
+            btn = wx.ToggleButton(panel, label=display_name, size=(btn_width, btn_height))
             btn.SetFont(self.small_font)
             btn.SetToolTip(desc)
             btn.Bind(wx.EVT_TOGGLEBUTTON, lambda e, m=mod_name: self._on_toggle(m, e))
             self.module_btns[mod_name] = btn
-            grid_sizer.Add(btn, 0)
+            grid_sizer.Add(btn, 0, wx.EXPAND)
 
             # Hidden status label (for tracking state)
             status = wx.StaticText(panel, label="", size=(0, 0))
             status.Hide()
             self.status_labels[mod_name] = status
 
-        main_sizer.Add(grid_sizer, 0, wx.ALL | wx.ALIGN_CENTER, 3)
+        main_sizer.Add(grid_sizer, 1, wx.ALL | wx.ALIGN_CENTER, 10)
 
         # Button row (Hide and Stop)
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        hide_btn = wx.Button(panel, label="Hide", size=(60, 28))
+        hide_btn = wx.Button(panel, label="Hide", size=(100, 45))
         hide_btn.SetFont(self.small_font)
         hide_btn.SetToolTip("Hide window (launcher gui to reopen)")
         hide_btn.Bind(wx.EVT_BUTTON, self._on_hide_btn)
-        btn_sizer.Add(hide_btn, 0, wx.RIGHT, 8)
+        btn_sizer.Add(hide_btn, 0, wx.RIGHT, 20)
         
-        stop_btn = wx.Button(panel, label="Stop", size=(60, 28))
+        stop_btn = wx.Button(panel, label="Stop", size=(100, 45))
         stop_btn.SetFont(self.small_font)
         stop_btn.SetToolTip("Close launcher (launcher gui to restart)")
         stop_btn.Bind(wx.EVT_BUTTON, self._on_stop_btn)
         btn_sizer.Add(stop_btn, 0)
         
-        main_sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.BOTTOM, 3)
+        main_sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
 
         panel.SetSizer(main_sizer)
 
