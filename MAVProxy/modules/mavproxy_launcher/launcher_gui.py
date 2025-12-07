@@ -108,8 +108,8 @@ class LauncherFrame(wx.Frame):
         self.loaded_modules = set()
 
         # Fonts optimized for small screen
-        self.small_font = wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        self.bold_font = wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        self.small_font = wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.bold_font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
 
         self._create_ui()
         
@@ -150,39 +150,38 @@ class LauncherFrame(wx.Frame):
         title.SetFont(self.bold_font)
         main_sizer.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 3)
 
-        # Module buttons in a grid
-        grid_sizer = wx.FlexGridSizer(cols=2, hgap=3, vgap=2)
+        # Module buttons in a multi-column grid (3 columns)
+        grid_sizer = wx.FlexGridSizer(cols=3, hgap=5, vgap=5)
 
         self.module_btns = {}
         self.status_labels = {}
 
         for mod_name, display_name, desc in self.modules:
-            # Load/Unload button
-            btn = wx.ToggleButton(panel, label=display_name, size=(80, 22))
+            # Load/Unload button only (no status label for compact layout)
+            btn = wx.ToggleButton(panel, label=display_name, size=(85, 32))
             btn.SetFont(self.small_font)
             btn.SetToolTip(desc)
             btn.Bind(wx.EVT_TOGGLEBUTTON, lambda e, m=mod_name: self._on_toggle(m, e))
             self.module_btns[mod_name] = btn
             grid_sizer.Add(btn, 0)
 
-            # Status label
-            status = wx.StaticText(panel, label="", size=(45, -1))
-            status.SetFont(self.small_font)
+            # Hidden status label (for tracking state)
+            status = wx.StaticText(panel, label="", size=(0, 0))
+            status.Hide()
             self.status_labels[mod_name] = status
-            grid_sizer.Add(status, 0, wx.ALIGN_CENTER_VERTICAL)
 
         main_sizer.Add(grid_sizer, 0, wx.ALL | wx.ALIGN_CENTER, 3)
 
         # Button row (Hide and Stop)
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        hide_btn = wx.Button(panel, label="Hide", size=(50, 20))
+        hide_btn = wx.Button(panel, label="Hide", size=(60, 28))
         hide_btn.SetFont(self.small_font)
         hide_btn.SetToolTip("Hide window (launcher gui to reopen)")
         hide_btn.Bind(wx.EVT_BUTTON, self._on_hide_btn)
-        btn_sizer.Add(hide_btn, 0, wx.RIGHT, 5)
+        btn_sizer.Add(hide_btn, 0, wx.RIGHT, 8)
         
-        stop_btn = wx.Button(panel, label="Stop", size=(50, 20))
+        stop_btn = wx.Button(panel, label="Stop", size=(60, 28))
         stop_btn.SetFont(self.small_font)
         stop_btn.SetToolTip("Close launcher (launcher gui to restart)")
         stop_btn.Bind(wx.EVT_BUTTON, self._on_stop_btn)
@@ -235,11 +234,10 @@ class LauncherFrame(wx.Frame):
             is_loaded = mod_name in self.loaded_modules
             btn.SetValue(is_loaded)
             if is_loaded:
-                self.status_labels[mod_name].SetLabel("Loaded")
-                self.status_labels[mod_name].SetForegroundColour(wx.Colour(0, 128, 0))
+                btn.SetBackgroundColour(wx.Colour(144, 238, 144))  # Light green
             else:
-                self.status_labels[mod_name].SetLabel("")
-                self.status_labels[mod_name].SetForegroundColour(wx.BLACK)
+                btn.SetBackgroundColour(wx.NullColour)  # Default color
+            btn.Refresh()
 
     def _on_hide_btn(self, event):
         """Hide button handler - hide window but keep running"""
