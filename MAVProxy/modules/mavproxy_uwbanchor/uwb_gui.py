@@ -12,9 +12,9 @@ import os
 
 from MAVProxy.modules.lib.multiproc import Process, Queue
 
-# Screen size for 3.5 inch display
+# Screen size for 3.5 inch display (accounting for OS taskbar)
 SMALL_SCREEN_WIDTH = 480
-SMALL_SCREEN_HEIGHT = 320
+SMALL_SCREEN_HEIGHT = 280
 
 
 class UWBAnchorGUI:
@@ -130,10 +130,10 @@ class UWBAnchorFrame(wx.Frame):
         self.origin = None
 
         # Smaller font for compact display
-        self.small_font = wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        self.mono_font = wx.Font(8, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        self.bold_font = wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
-        self.large_font = wx.Font(10, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        self.small_font = wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.mono_font = wx.Font(7, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.bold_font = wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        self.large_font = wx.Font(9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
 
         self._create_ui()
 
@@ -172,7 +172,7 @@ class UWBAnchorFrame(wx.Frame):
         self._create_anchor_tab(self.anchor_panel)
         self.notebook.AddPage(self.anchor_panel, "Anchors")
 
-        main_sizer.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 2)
+        main_sizer.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 1)
         panel.SetSizer(main_sizer)
 
     def _create_position_tab(self, panel):
@@ -191,59 +191,56 @@ class UWBAnchorFrame(wx.Frame):
         self.lon_text.SetFont(self.mono_font)
         self.alt_text.SetFont(self.mono_font)
 
-        wgs_sizer.Add(self.lat_text, 0, wx.ALL, 2)
-        wgs_sizer.Add(self.lon_text, 0, wx.ALL, 2)
-        wgs_sizer.Add(self.alt_text, 0, wx.ALL, 2)
-        sizer.Add(wgs_sizer, 0, wx.EXPAND | wx.ALL, 3)
+        wgs_sizer.Add(self.lat_text, 0, wx.LEFT | wx.RIGHT, 2)
+        wgs_sizer.Add(self.lon_text, 0, wx.LEFT | wx.RIGHT, 2)
+        wgs_sizer.Add(self.alt_text, 0, wx.LEFT | wx.RIGHT, 2)
+        sizer.Add(wgs_sizer, 0, wx.EXPAND | wx.ALL, 2)
 
         # NED Section
-        ned_box = wx.StaticBox(panel, label="NED (from Origin)")
+        ned_box = wx.StaticBox(panel, label="NED")
         ned_sizer = wx.StaticBoxSizer(ned_box, wx.VERTICAL)
 
         ned_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.n_text = wx.StaticText(panel, label="N: ---", size=(70, -1))
-        self.e_text = wx.StaticText(panel, label="E: ---", size=(70, -1))
-        self.d_text = wx.StaticText(panel, label="D: ---", size=(70, -1))
+        self.n_text = wx.StaticText(panel, label="N: ---", size=(60, -1))
+        self.e_text = wx.StaticText(panel, label="E: ---", size=(60, -1))
+        self.d_text = wx.StaticText(panel, label="D: ---", size=(60, -1))
         
         self.n_text.SetFont(self.mono_font)
         self.e_text.SetFont(self.mono_font)
         self.d_text.SetFont(self.mono_font)
 
-        ned_row.Add(self.n_text, 1, wx.RIGHT, 5)
-        ned_row.Add(self.e_text, 1, wx.RIGHT, 5)
+        ned_row.Add(self.n_text, 1, wx.RIGHT, 2)
+        ned_row.Add(self.e_text, 1, wx.RIGHT, 2)
         ned_row.Add(self.d_text, 1)
-        ned_sizer.Add(ned_row, 0, wx.EXPAND | wx.ALL, 2)
+        ned_sizer.Add(ned_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 2)
 
         # Origin status
         self.origin_text = wx.StaticText(panel, label="Origin: Not set")
         self.origin_text.SetForegroundColour(wx.RED)
         self.origin_text.SetFont(self.bold_font)
-        ned_sizer.Add(self.origin_text, 0, wx.ALL, 2)
+        ned_sizer.Add(self.origin_text, 0, wx.LEFT | wx.RIGHT, 2)
 
-        sizer.Add(ned_sizer, 0, wx.EXPAND | wx.ALL, 3)
+        sizer.Add(ned_sizer, 0, wx.EXPAND | wx.ALL, 2)
 
         # Progress bar
         self.progress_label = wx.StaticText(panel, label="Recording...")
-        self.progress_bar = wx.Gauge(panel, range=100, size=(-1, 15))
+        self.progress_bar = wx.Gauge(panel, range=100, size=(-1, 12))
         self.progress_label.Hide()
         self.progress_bar.Hide()
-        sizer.Add(self.progress_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 3)
-        sizer.Add(self.progress_bar, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 3)
+        sizer.Add(self.progress_label, 0, wx.LEFT | wx.RIGHT, 2)
+        sizer.Add(self.progress_bar, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 2)
 
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.origin_btn = wx.Button(panel, label="Set Origin", size=(90, 28))
-        self.add_btn = wx.Button(panel, label="Add Anchor", size=(90, 28))
-        
-        self.origin_btn.SetBackgroundColour(wx.Colour(200, 230, 200))
-        self.add_btn.SetBackgroundColour(wx.Colour(200, 220, 240))
+        self.origin_btn = wx.Button(panel, label="Set Origin", size=(80, 24))
+        self.add_btn = wx.Button(panel, label="Add Anchor", size=(80, 24))
         
         self.origin_btn.Bind(wx.EVT_BUTTON, self._on_set_origin)
         self.add_btn.Bind(wx.EVT_BUTTON, self._on_add_anchor)
 
-        btn_sizer.Add(self.origin_btn, 1, wx.RIGHT, 5)
+        btn_sizer.Add(self.origin_btn, 1, wx.RIGHT, 2)
         btn_sizer.Add(self.add_btn, 1)
-        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 3)
+        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 2)
 
         panel.SetSizer(sizer)
 
@@ -252,37 +249,37 @@ class UWBAnchorFrame(wx.Frame):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Status
-        status_box = wx.StaticBox(panel, label="Backsight Status")
+        status_box = wx.StaticBox(panel, label="Status")
         status_sizer = wx.StaticBoxSizer(status_box, wx.VERTICAL)
 
         self.bs_status_text = wx.StaticText(panel, label="Not set")
         self.bs_status_text.SetFont(self.bold_font)
-        status_sizer.Add(self.bs_status_text, 0, wx.ALL, 2)
+        status_sizer.Add(self.bs_status_text, 0, wx.LEFT | wx.RIGHT, 2)
 
         # Target NED
         target_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.bs_target_n = wx.StaticText(panel, label="N: ---", size=(65, -1))
-        self.bs_target_e = wx.StaticText(panel, label="E: ---", size=(65, -1))
-        self.bs_target_d = wx.StaticText(panel, label="D: ---", size=(65, -1))
+        self.bs_target_n = wx.StaticText(panel, label="N: ---", size=(55, -1))
+        self.bs_target_e = wx.StaticText(panel, label="E: ---", size=(55, -1))
+        self.bs_target_d = wx.StaticText(panel, label="D: ---", size=(55, -1))
         self.bs_target_n.SetFont(self.mono_font)
         self.bs_target_e.SetFont(self.mono_font)
         self.bs_target_d.SetFont(self.mono_font)
         target_row.Add(self.bs_target_n, 1)
         target_row.Add(self.bs_target_e, 1)
         target_row.Add(self.bs_target_d, 1)
-        status_sizer.Add(target_row, 0, wx.EXPAND | wx.ALL, 2)
+        status_sizer.Add(target_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 2)
 
-        sizer.Add(status_sizer, 0, wx.EXPAND | wx.ALL, 3)
+        sizer.Add(status_sizer, 0, wx.EXPAND | wx.ALL, 2)
 
         # Error display
         err_box = wx.StaticBox(panel, label="Error (mm)")
         err_sizer = wx.StaticBoxSizer(err_box, wx.VERTICAL)
 
         err_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.bs_err_n = wx.StaticText(panel, label="N: ---", size=(55, -1))
-        self.bs_err_e = wx.StaticText(panel, label="E: ---", size=(55, -1))
-        self.bs_err_d = wx.StaticText(panel, label="D: ---", size=(55, -1))
-        self.bs_err_total = wx.StaticText(panel, label="Tot: ---", size=(65, -1))
+        self.bs_err_n = wx.StaticText(panel, label="N: ---", size=(50, -1))
+        self.bs_err_e = wx.StaticText(panel, label="E: ---", size=(50, -1))
+        self.bs_err_d = wx.StaticText(panel, label="D: ---", size=(50, -1))
+        self.bs_err_total = wx.StaticText(panel, label="Tot: ---", size=(60, -1))
         
         self.bs_err_n.SetFont(self.large_font)
         self.bs_err_e.SetFont(self.large_font)
@@ -293,26 +290,26 @@ class UWBAnchorFrame(wx.Frame):
         err_row.Add(self.bs_err_e, 1)
         err_row.Add(self.bs_err_d, 1)
         err_row.Add(self.bs_err_total, 1)
-        err_sizer.Add(err_row, 0, wx.EXPAND | wx.ALL, 2)
+        err_sizer.Add(err_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 2)
 
         # Match indicator
         self.bs_match_indicator = wx.StaticText(panel, label="")
         self.bs_match_indicator.SetFont(self.large_font)
-        err_sizer.Add(self.bs_match_indicator, 0, wx.ALIGN_CENTER | wx.ALL, 2)
+        err_sizer.Add(self.bs_match_indicator, 0, wx.ALIGN_CENTER | wx.LEFT | wx.RIGHT, 2)
 
-        sizer.Add(err_sizer, 0, wx.EXPAND | wx.ALL, 3)
+        sizer.Add(err_sizer, 0, wx.EXPAND | wx.ALL, 2)
 
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.bs_set_btn = wx.Button(panel, label="Set", size=(70, 28))
-        self.bs_clear_btn = wx.Button(panel, label="Clear", size=(70, 28))
+        self.bs_set_btn = wx.Button(panel, label="Set", size=(60, 22))
+        self.bs_clear_btn = wx.Button(panel, label="Clear", size=(60, 22))
         
         self.bs_set_btn.Bind(wx.EVT_BUTTON, self._on_set_backsight)
         self.bs_clear_btn.Bind(wx.EVT_BUTTON, self._on_clear_backsight)
 
-        btn_sizer.Add(self.bs_set_btn, 1, wx.RIGHT, 5)
+        btn_sizer.Add(self.bs_set_btn, 1, wx.RIGHT, 2)
         btn_sizer.Add(self.bs_clear_btn, 1)
-        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 3)
+        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 2)
 
         panel.SetSizer(sizer)
 
@@ -321,7 +318,7 @@ class UWBAnchorFrame(wx.Frame):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # GPS Status
-        gps_box = wx.StaticBox(panel, label="GPS Status")
+        gps_box = wx.StaticBox(panel, label="GPS")
         gps_sizer = wx.StaticBoxSizer(gps_box, wx.VERTICAL)
 
         fix_row = wx.BoxSizer(wx.HORIZONTAL)
@@ -329,55 +326,53 @@ class UWBAnchorFrame(wx.Frame):
         fix_label.SetFont(self.bold_font)
         self.gps_fix_text = wx.StaticText(panel, label="---")
         self.gps_fix_text.SetFont(self.large_font)
-        fix_row.Add(fix_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        fix_row.Add(fix_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
         fix_row.Add(self.gps_fix_text, 1, wx.ALIGN_CENTER_VERTICAL)
-        gps_sizer.Add(fix_row, 0, wx.EXPAND | wx.ALL, 2)
+        gps_sizer.Add(fix_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 2)
 
         info_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.gps_sats_text = wx.StaticText(panel, label="Sats: --", size=(60, -1))
-        self.gps_hdop_text = wx.StaticText(panel, label="HDOP: --", size=(80, -1))
+        self.gps_sats_text = wx.StaticText(panel, label="Sats: --", size=(50, -1))
+        self.gps_hdop_text = wx.StaticText(panel, label="HDOP: --", size=(70, -1))
         self.gps_sats_text.SetFont(self.mono_font)
         self.gps_hdop_text.SetFont(self.mono_font)
         info_row.Add(self.gps_sats_text, 1)
         info_row.Add(self.gps_hdop_text, 1)
-        gps_sizer.Add(info_row, 0, wx.EXPAND | wx.ALL, 2)
+        gps_sizer.Add(info_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 2)
 
-        sizer.Add(gps_sizer, 0, wx.EXPAND | wx.ALL, 3)
+        sizer.Add(gps_sizer, 0, wx.EXPAND | wx.ALL, 2)
 
         # EKF Status
-        ekf_box = wx.StaticBox(panel, label="EKF Status")
+        ekf_box = wx.StaticBox(panel, label="EKF")
         ekf_sizer = wx.StaticBoxSizer(ekf_box, wx.VERTICAL)
 
         self.ekf_flags_text = wx.StaticText(panel, label="Flags: 0x0000")
-        self.ekf_var_text = wx.StaticText(panel, label="Var: H=-.-- V=-.--")
+        self.ekf_var_text = wx.StaticText(panel, label="H=-.-- V=-.--")
         self.ekf_flags_text.SetFont(self.mono_font)
         self.ekf_var_text.SetFont(self.mono_font)
-        ekf_sizer.Add(self.ekf_flags_text, 0, wx.ALL, 2)
-        ekf_sizer.Add(self.ekf_var_text, 0, wx.ALL, 2)
+        ekf_sizer.Add(self.ekf_flags_text, 0, wx.LEFT | wx.RIGHT, 2)
+        ekf_sizer.Add(self.ekf_var_text, 0, wx.LEFT | wx.RIGHT, 2)
 
-        sizer.Add(ekf_sizer, 0, wx.EXPAND | wx.ALL, 3)
+        sizer.Add(ekf_sizer, 0, wx.EXPAND | wx.ALL, 2)
 
         # RTK Control
-        rtk_box = wx.StaticBox(panel, label="RTK Control")
+        rtk_box = wx.StaticBox(panel, label="RTK")
         rtk_sizer = wx.StaticBoxSizer(rtk_box, wx.VERTICAL)
 
-        self.rtk_status_text = wx.StaticText(panel, label="RTK: Disabled")
+        self.rtk_status_text = wx.StaticText(panel, label="RTK: OFF")
         self.rtk_status_text.SetFont(self.large_font)
         self.rtk_status_text.SetForegroundColour(wx.Colour(180, 0, 0))
-        rtk_sizer.Add(self.rtk_status_text, 0, wx.ALL, 2)
+        rtk_sizer.Add(self.rtk_status_text, 0, wx.LEFT | wx.RIGHT, 2)
 
         btn_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.rtk_enable_btn = wx.Button(panel, label="Enable", size=(70, 28))
-        self.rtk_disable_btn = wx.Button(panel, label="Disable", size=(70, 28))
-        self.rtk_enable_btn.SetBackgroundColour(wx.Colour(200, 230, 200))
-        self.rtk_disable_btn.SetBackgroundColour(wx.Colour(240, 200, 200))
+        self.rtk_enable_btn = wx.Button(panel, label="Enable", size=(60, 22))
+        self.rtk_disable_btn = wx.Button(panel, label="Disable", size=(60, 22))
         self.rtk_enable_btn.Bind(wx.EVT_BUTTON, self._on_rtk_enable)
         self.rtk_disable_btn.Bind(wx.EVT_BUTTON, self._on_rtk_disable)
-        btn_row.Add(self.rtk_enable_btn, 1, wx.RIGHT, 5)
+        btn_row.Add(self.rtk_enable_btn, 1, wx.RIGHT, 2)
         btn_row.Add(self.rtk_disable_btn, 1)
-        rtk_sizer.Add(btn_row, 0, wx.EXPAND | wx.ALL, 2)
+        rtk_sizer.Add(btn_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 2)
 
-        sizer.Add(rtk_sizer, 0, wx.EXPAND | wx.ALL, 3)
+        sizer.Add(rtk_sizer, 0, wx.EXPAND | wx.ALL, 2)
 
         panel.SetSizer(sizer)
 
@@ -393,45 +388,36 @@ class UWBAnchorFrame(wx.Frame):
         self.anchor_list.SetFont(self.mono_font)
         
         # Columns optimized for small screen
-        self.anchor_list.InsertColumn(0, "ID", width=30)
-        self.anchor_list.InsertColumn(1, "Name", width=50)
-        self.anchor_list.InsertColumn(2, "N", width=65)
-        self.anchor_list.InsertColumn(3, "E", width=65)
-        self.anchor_list.InsertColumn(4, "D", width=65)
+        self.anchor_list.InsertColumn(0, "ID", width=25)
+        self.anchor_list.InsertColumn(1, "Name", width=45)
+        self.anchor_list.InsertColumn(2, "N", width=60)
+        self.anchor_list.InsertColumn(3, "E", width=60)
+        self.anchor_list.InsertColumn(4, "D", width=60)
 
-        sizer.Add(self.anchor_list, 1, wx.EXPAND | wx.ALL, 3)
+        sizer.Add(self.anchor_list, 1, wx.EXPAND | wx.ALL, 2)
 
         # Buttons row 1
         btn_row1 = wx.BoxSizer(wx.HORIZONTAL)
-        self.delete_btn = wx.Button(panel, label="Delete", size=(70, 26))
-        self.clear_btn = wx.Button(panel, label="Clear All", size=(70, 26))
-        
-        self.delete_btn.SetBackgroundColour(wx.Colour(240, 200, 200))
-        self.clear_btn.SetBackgroundColour(wx.Colour(240, 200, 200))
+        self.delete_btn = wx.Button(panel, label="Del", size=(55, 22))
+        self.clear_btn = wx.Button(panel, label="Clear", size=(55, 22))
+        self.save_btn = wx.Button(panel, label="Save", size=(55, 22))
+        self.load_btn = wx.Button(panel, label="Load", size=(55, 22))
         
         self.delete_btn.Bind(wx.EVT_BUTTON, self._on_delete_anchor)
         self.clear_btn.Bind(wx.EVT_BUTTON, self._on_clear)
-
-        btn_row1.Add(self.delete_btn, 1, wx.RIGHT, 3)
-        btn_row1.Add(self.clear_btn, 1)
-        sizer.Add(btn_row1, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 3)
-
-        # Buttons row 2
-        btn_row2 = wx.BoxSizer(wx.HORIZONTAL)
-        self.save_btn = wx.Button(panel, label="Save", size=(70, 26))
-        self.load_btn = wx.Button(panel, label="Load", size=(70, 26))
-        
         self.save_btn.Bind(wx.EVT_BUTTON, self._on_save)
         self.load_btn.Bind(wx.EVT_BUTTON, self._on_load)
 
-        btn_row2.Add(self.save_btn, 1, wx.RIGHT, 3)
-        btn_row2.Add(self.load_btn, 1)
-        sizer.Add(btn_row2, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 3)
+        btn_row1.Add(self.delete_btn, 1, wx.RIGHT, 2)
+        btn_row1.Add(self.clear_btn, 1, wx.RIGHT, 2)
+        btn_row1.Add(self.save_btn, 1, wx.RIGHT, 2)
+        btn_row1.Add(self.load_btn, 1)
+        sizer.Add(btn_row1, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 2)
 
         # Anchor count label
         self.anchor_count_label = wx.StaticText(panel, label="0 anchors")
         self.anchor_count_label.SetFont(self.small_font)
-        sizer.Add(self.anchor_count_label, 0, wx.LEFT | wx.BOTTOM, 3)
+        sizer.Add(self.anchor_count_label, 0, wx.LEFT | wx.BOTTOM, 2)
 
         panel.SetSizer(sizer)
 
@@ -723,8 +709,8 @@ class BacksightDialog(wx.Dialog):
     def __init__(self, parent):
         super(BacksightDialog, self).__init__(
             parent,
-            title="Set Backsight",
-            size=(280, 200),
+            title="Backsight",
+            size=(240, 160),
             style=wx.DEFAULT_DIALOG_STYLE
         )
 
@@ -735,45 +721,45 @@ class BacksightDialog(wx.Dialog):
         panel = wx.Panel(self)
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        small_font = wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        small_font = wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
 
         # Direction
         dir_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        dir_label = wx.StaticText(panel, label="Direction:")
+        dir_label = wx.StaticText(panel, label="Dir:")
         dir_label.SetFont(small_font)
-        dir_sizer.Add(dir_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-        self.dir_choice = wx.Choice(panel, choices=['N', 'E', 'S', 'W'], size=(60, -1))
+        dir_sizer.Add(dir_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        self.dir_choice = wx.Choice(panel, choices=['N', 'E', 'S', 'W'], size=(50, -1))
         self.dir_choice.SetSelection(0)
         dir_sizer.Add(self.dir_choice, 0)
-        main_sizer.Add(dir_sizer, 0, wx.ALL, 8)
+        main_sizer.Add(dir_sizer, 0, wx.ALL, 5)
 
         # Distance
         dist_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        dist_label = wx.StaticText(panel, label="Distance (m):")
+        dist_label = wx.StaticText(panel, label="Dist(m):")
         dist_label.SetFont(small_font)
-        dist_sizer.Add(dist_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-        self.dist_ctrl = wx.TextCtrl(panel, value="10.0", size=(70, -1))
+        dist_sizer.Add(dist_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        self.dist_ctrl = wx.TextCtrl(panel, value="10.0", size=(60, -1))
         dist_sizer.Add(self.dist_ctrl, 0)
-        main_sizer.Add(dist_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        main_sizer.Add(dist_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
 
         # Threshold
         thresh_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        thresh_label = wx.StaticText(panel, label="Threshold (mm):")
+        thresh_label = wx.StaticText(panel, label="Thr(mm):")
         thresh_label.SetFont(small_font)
-        thresh_sizer.Add(thresh_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-        self.thresh_ctrl = wx.TextCtrl(panel, value="50", size=(60, -1))
+        thresh_sizer.Add(thresh_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        self.thresh_ctrl = wx.TextCtrl(panel, value="50", size=(50, -1))
         thresh_sizer.Add(self.thresh_ctrl, 0)
-        main_sizer.Add(thresh_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        main_sizer.Add(thresh_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
 
         # Buttons
         btn_sizer = wx.StdDialogButtonSizer()
-        ok_btn = wx.Button(panel, wx.ID_OK, size=(60, 26))
+        ok_btn = wx.Button(panel, wx.ID_OK, size=(50, 22))
         ok_btn.SetDefault()
-        cancel_btn = wx.Button(panel, wx.ID_CANCEL, size=(60, 26))
+        cancel_btn = wx.Button(panel, wx.ID_CANCEL, size=(50, 22))
         btn_sizer.AddButton(ok_btn)
         btn_sizer.AddButton(cancel_btn)
         btn_sizer.Realize()
-        main_sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 8)
+        main_sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 5)
 
         panel.SetSizer(main_sizer)
 

@@ -278,6 +278,9 @@ class UWBAnchorModule(mp_module.MPModule):
         # GUI
         self.gui = None
         self.last_gui_update = 0
+        
+        # Auto-start GUI
+        self.cmd_gui()
 
     def cmd_uwbanchor(self, args):
         """Handle uwbanchor commands"""

@@ -1,15 +1,21 @@
 """
-  UWB Fusion Accuracy Test GUI
-  
-  Real-time error graph and EKF configuration
+  UWB Fusion Accuracy Test GUI - Small Screen Version
+  Optimized for 3.5 inch screens (480x280)
 """
 
-import wx
-import wx.lib.plot as wxplot
 import math
 import time
 
+try:
+    import wx
+except ImportError:
+    wx = None
+
 from MAVProxy.modules.lib.multiproc import Process, Queue
+
+# Screen size for 3.5 inch display
+SMALL_SCREEN_WIDTH = 480
+SMALL_SCREEN_HEIGHT = 280
 
 
 class UWBTestGUI:
@@ -73,6 +79,7 @@ class UWBTestGUI:
 
     def _run_gui(self, cmd_queue, data_queue):
         """Run GUI in separate process"""
+        import wx
         app = wx.App()
         frame = UWBTestFrame(cmd_queue, data_queue)
         frame.Show()
@@ -80,200 +87,253 @@ class UWBTestGUI:
 
 
 class UWBTestFrame(wx.Frame):
-    """Main GUI window"""
+    """Main GUI window - Tabbed interface for small screens"""
 
     def __init__(self, cmd_queue, data_queue):
-        super(UWBTestFrame, self).__init__(None, title="UWB Fusion Accuracy Test", size=(1000, 800))
+        import wx
+        super(UWBTestFrame, self).__init__(
+            None, 
+            title="UWB Test", 
+            size=(SMALL_SCREEN_WIDTH, SMALL_SCREEN_HEIGHT),
+            style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX)
+        )
         self.cmd_queue = cmd_queue
         self.data_queue = data_queue
 
-        self.graph_data = {
-            'time': [],
-            'err_n': [],
-            'err_e': [],
-            'err_d': [],
-            'err_horiz': []
-        }
+        # Fonts
+        self.small_font = wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.mono_font = wx.Font(7, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.bold_font = wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        self.large_font = wx.Font(9, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
 
         self._create_ui()
-        self._create_menu()
 
         # Timer for processing commands
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_timer, self.timer)
-        self.timer.Start(50)  # 20 Hz
+        self.timer.Start(50)
 
         self.Bind(wx.EVT_CLOSE, self._on_close)
 
-    def _create_menu(self):
-        menubar = wx.MenuBar()
-
-        file_menu = wx.Menu()
-        save_json = file_menu.Append(wx.ID_ANY, "Save JSON\tCtrl+S", "Save as JSON")
-        save_csv = file_menu.Append(wx.ID_ANY, "Save CSV", "Save as CSV")
-        file_menu.AppendSeparator()
-        exit_item = file_menu.Append(wx.ID_EXIT, "Exit\tCtrl+Q", "Exit")
-
-        self.Bind(wx.EVT_MENU, self._on_save_json, save_json)
-        self.Bind(wx.EVT_MENU, self._on_save_csv, save_csv)
-        self.Bind(wx.EVT_MENU, self._on_close, exit_item)
-
-        menubar.Append(file_menu, "&File")
-        self.SetMenuBar(menubar)
-
     def _create_ui(self):
+        """Create tabbed interface"""
+        import wx
         panel = wx.Panel(self)
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # === Status Section ===
-        status_box = wx.StaticBox(panel, label="Test Status")
-        status_sizer = wx.StaticBoxSizer(status_box, wx.HORIZONTAL)
+        # Create notebook (tabs)
+        self.notebook = wx.Notebook(panel)
 
-        # Left: Test status
-        left_sizer = wx.BoxSizer(wx.VERTICAL)
-        
-        self.status_text = wx.StaticText(panel, label="Status: IDLE")
-        self.status_text.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        left_sizer.Add(self.status_text, 0, wx.ALL, 5)
+        # Tab 1: Status & Error
+        self.status_panel = wx.Panel(self.notebook)
+        self._create_status_tab(self.status_panel)
+        self.notebook.AddPage(self.status_panel, "Status")
 
-        info_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.elapsed_text = wx.StaticText(panel, label="Elapsed: 0.0 s")
-        self.samples_text = wx.StaticText(panel, label="Samples: 0")
-        self.rtk_text = wx.StaticText(panel, label="RTK: ---")
-        info_sizer.Add(self.elapsed_text, 0, wx.RIGHT, 20)
-        info_sizer.Add(self.samples_text, 0, wx.RIGHT, 20)
-        info_sizer.Add(self.rtk_text, 0)
-        left_sizer.Add(info_sizer, 0, wx.ALL, 5)
+        # Tab 2: Config
+        self.config_panel = wx.Panel(self.notebook)
+        self._create_config_tab(self.config_panel)
+        self.notebook.AddPage(self.config_panel, "Config")
 
-        status_sizer.Add(left_sizer, 1, wx.EXPAND)
+        # Tab 3: Stats
+        self.stats_panel = wx.Panel(self.notebook)
+        self._create_stats_tab(self.stats_panel)
+        self.notebook.AddPage(self.stats_panel, "Stats")
 
-        # Right: Control buttons
+        main_sizer.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 1)
+        panel.SetSizer(main_sizer)
+
+    def _create_status_tab(self, panel):
+        """Create status and error display tab"""
+        import wx
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Status row
+        status_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.status_text = wx.StaticText(panel, label="IDLE")
+        self.status_text.SetFont(self.large_font)
+        self.status_text.SetForegroundColour(wx.Colour(0, 100, 0))
+        status_row.Add(self.status_text, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        self.elapsed_text = wx.StaticText(panel, label="0.0s")
+        self.elapsed_text.SetFont(self.mono_font)
+        status_row.Add(self.elapsed_text, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+
+        self.samples_text = wx.StaticText(panel, label="0 smp")
+        self.samples_text.SetFont(self.mono_font)
+        status_row.Add(self.samples_text, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        sizer.Add(status_row, 0, wx.ALL, 3)
+
+        # RTK status
+        rtk_row = wx.BoxSizer(wx.HORIZONTAL)
+        rtk_label = wx.StaticText(panel, label="RTK:")
+        rtk_label.SetFont(self.bold_font)
+        rtk_row.Add(rtk_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        self.rtk_text = wx.StaticText(panel, label="---")
+        self.rtk_text.SetFont(self.mono_font)
+        rtk_row.Add(self.rtk_text, 0, wx.ALIGN_CENTER_VERTICAL)
+        sizer.Add(rtk_row, 0, wx.LEFT | wx.RIGHT, 3)
+
+        # Error box
+        err_box = wx.StaticBox(panel, label="Error (mm)")
+        err_sizer = wx.StaticBoxSizer(err_box, wx.VERTICAL)
+
+        # NED errors
+        ned_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.err_n_text = wx.StaticText(panel, label="N:---", size=(55, -1))
+        self.err_e_text = wx.StaticText(panel, label="E:---", size=(55, -1))
+        self.err_d_text = wx.StaticText(panel, label="D:---", size=(55, -1))
+        self.err_n_text.SetFont(self.large_font)
+        self.err_e_text.SetFont(self.large_font)
+        self.err_d_text.SetFont(self.large_font)
+        ned_row.Add(self.err_n_text, 1)
+        ned_row.Add(self.err_e_text, 1)
+        ned_row.Add(self.err_d_text, 1)
+        err_sizer.Add(ned_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 2)
+
+        # Horiz/Total
+        total_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.err_horiz_text = wx.StaticText(panel, label="H:---", size=(70, -1))
+        self.err_total_text = wx.StaticText(panel, label="T:---", size=(70, -1))
+        self.err_horiz_text.SetFont(self.large_font)
+        self.err_total_text.SetFont(self.large_font)
+        total_row.Add(self.err_horiz_text, 1)
+        total_row.Add(self.err_total_text, 1)
+        err_sizer.Add(total_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 2)
+
+        sizer.Add(err_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
+        # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.start_btn = wx.Button(panel, label="Start Test", size=(100, 40))
-        self.stop_btn = wx.Button(panel, label="Stop Test", size=(100, 40))
-        self.analyze_btn = wx.Button(panel, label="Analyze", size=(100, 40))
-        
-        self.start_btn.SetBackgroundColour(wx.Colour(100, 200, 100))
-        self.stop_btn.SetBackgroundColour(wx.Colour(200, 100, 100))
+        self.start_btn = wx.Button(panel, label="Start", size=(65, 24))
+        self.stop_btn = wx.Button(panel, label="Stop", size=(65, 24))
+        self.analyze_btn = wx.Button(panel, label="Analyze", size=(65, 24))
+        self.save_btn = wx.Button(panel, label="Save", size=(65, 24))
+
         self.stop_btn.Enable(False)
 
         self.start_btn.Bind(wx.EVT_BUTTON, self._on_start)
         self.stop_btn.Bind(wx.EVT_BUTTON, self._on_stop)
         self.analyze_btn.Bind(wx.EVT_BUTTON, self._on_analyze)
+        self.save_btn.Bind(wx.EVT_BUTTON, self._on_save)
 
-        btn_sizer.Add(self.start_btn, 0, wx.RIGHT, 10)
-        btn_sizer.Add(self.stop_btn, 0, wx.RIGHT, 10)
-        btn_sizer.Add(self.analyze_btn, 0)
-        status_sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 10)
+        btn_sizer.Add(self.start_btn, 1, wx.RIGHT, 2)
+        btn_sizer.Add(self.stop_btn, 1, wx.RIGHT, 2)
+        btn_sizer.Add(self.analyze_btn, 1, wx.RIGHT, 2)
+        btn_sizer.Add(self.save_btn, 1)
+        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
-        main_sizer.Add(status_sizer, 0, wx.EXPAND | wx.ALL, 10)
+        panel.SetSizer(sizer)
 
-        # === Current Error Section ===
-        error_box = wx.StaticBox(panel, label="Current Error (EKF - RTK)")
-        error_sizer = wx.StaticBoxSizer(error_box, wx.HORIZONTAL)
-
-        self.err_n_text = wx.StaticText(panel, label="N: --- mm", size=(120, -1))
-        self.err_e_text = wx.StaticText(panel, label="E: --- mm", size=(120, -1))
-        self.err_d_text = wx.StaticText(panel, label="D: --- mm", size=(120, -1))
-        self.err_horiz_text = wx.StaticText(panel, label="Horiz: --- mm", size=(130, -1))
-        self.err_total_text = wx.StaticText(panel, label="Total: --- mm", size=(130, -1))
-
-        font = wx.Font(11, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        for txt in [self.err_n_text, self.err_e_text, self.err_d_text, 
-                    self.err_horiz_text, self.err_total_text]:
-            txt.SetFont(font)
-
-        error_sizer.Add(self.err_n_text, 0, wx.ALL, 10)
-        error_sizer.Add(self.err_e_text, 0, wx.ALL, 10)
-        error_sizer.Add(self.err_d_text, 0, wx.ALL, 10)
-        error_sizer.Add(self.err_horiz_text, 0, wx.ALL, 10)
-        error_sizer.Add(self.err_total_text, 0, wx.ALL, 10)
-
-        main_sizer.Add(error_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
-
-        # === EKF Configuration Section ===
-        config_box = wx.StaticBox(panel, label="EKF Fusion Configuration (PX4)")
-        config_sizer = wx.StaticBoxSizer(config_box, wx.HORIZONTAL)
+    def _create_config_tab(self, panel):
+        """Create EKF configuration tab"""
+        import wx
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
         # GPS Control
-        gps_sizer = wx.BoxSizer(wx.VERTICAL)
-        gps_sizer.Add(wx.StaticText(panel, label="GPS Fusion:"), 0, wx.BOTTOM, 5)
-        self.gps_ctrl_spin = wx.SpinCtrl(panel, min=0, max=7, initial=7, size=(60, -1))
-        self.gps_ctrl_text = wx.StaticText(panel, label="(0=off, 7=all)")
-        gps_h = wx.BoxSizer(wx.HORIZONTAL)
-        gps_h.Add(self.gps_ctrl_spin, 0, wx.RIGHT, 5)
-        gps_h.Add(self.gps_ctrl_text, 0, wx.ALIGN_CENTER_VERTICAL)
-        gps_sizer.Add(gps_h, 0)
-        config_sizer.Add(gps_sizer, 0, wx.ALL, 10)
+        gps_box = wx.StaticBox(panel, label="GPS Fusion")
+        gps_sizer = wx.StaticBoxSizer(gps_box, wx.HORIZONTAL)
+        gps_label = wx.StaticText(panel, label="Mode:")
+        gps_label.SetFont(self.small_font)
+        gps_sizer.Add(gps_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        self.gps_ctrl_spin = wx.SpinCtrl(panel, min=0, max=7, initial=7, size=(45, -1))
+        gps_sizer.Add(self.gps_ctrl_spin, 0, wx.RIGHT, 3)
+        gps_hint = wx.StaticText(panel, label="0=off,7=all")
+        gps_hint.SetFont(self.small_font)
+        gps_sizer.Add(gps_hint, 0, wx.ALIGN_CENTER_VERTICAL)
+        sizer.Add(gps_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
-        # UWB Beacon
-        uwbb_sizer = wx.BoxSizer(wx.VERTICAL)
-        uwbb_sizer.Add(wx.StaticText(panel, label="UWB Beacon:"), 0, wx.BOTTOM, 5)
-        self.uwbb_check = wx.CheckBox(panel, label="Enable")
-        uwbb_sizer.Add(self.uwbb_check, 0)
-        config_sizer.Add(uwbb_sizer, 0, wx.ALL, 10)
-
-        # UWB Tag
-        uwbt_sizer = wx.BoxSizer(wx.VERTICAL)
-        uwbt_sizer.Add(wx.StaticText(panel, label="UWB Tag:"), 0, wx.BOTTOM, 5)
-        self.uwbt_check = wx.CheckBox(panel, label="Enable")
-        uwbt_sizer.Add(self.uwbt_check, 0)
-        config_sizer.Add(uwbt_sizer, 0, wx.ALL, 10)
+        # UWB Controls
+        uwb_box = wx.StaticBox(panel, label="UWB Fusion")
+        uwb_sizer = wx.StaticBoxSizer(uwb_box, wx.HORIZONTAL)
+        self.uwbb_check = wx.CheckBox(panel, label="Beacon")
+        self.uwbt_check = wx.CheckBox(panel, label="Tag")
+        self.uwbb_check.SetFont(self.small_font)
+        self.uwbt_check.SetFont(self.small_font)
+        uwb_sizer.Add(self.uwbb_check, 0, wx.RIGHT, 10)
+        uwb_sizer.Add(self.uwbt_check, 0)
+        sizer.Add(uwb_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         # Height Reference
-        hgt_sizer = wx.BoxSizer(wx.VERTICAL)
-        hgt_sizer.Add(wx.StaticText(panel, label="Height Ref:"), 0, wx.BOTTOM, 5)
-        self.hgt_choice = wx.Choice(panel, choices=["Baro", "GPS", "Range", "Vision"])
+        hgt_box = wx.StaticBox(panel, label="Height Ref")
+        hgt_sizer = wx.StaticBoxSizer(hgt_box, wx.HORIZONTAL)
+        self.hgt_choice = wx.Choice(panel, choices=["Baro", "GPS", "Range", "Vision"], size=(70, -1))
         hgt_sizer.Add(self.hgt_choice, 0)
-        config_sizer.Add(hgt_sizer, 0, wx.ALL, 10)
+        sizer.Add(hgt_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         # Apply button
-        self.apply_btn = wx.Button(panel, label="Apply Config")
+        self.apply_btn = wx.Button(panel, label="Apply Config", size=(100, 24))
         self.apply_btn.Bind(wx.EVT_BUTTON, self._on_apply_config)
-        config_sizer.Add(self.apply_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 10)
+        sizer.Add(self.apply_btn, 0, wx.ALL, 3)
 
-        main_sizer.Add(config_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+        panel.SetSizer(sizer)
 
-        # === Graph Section ===
-        graph_box = wx.StaticBox(panel, label="Error History (mm)")
-        graph_sizer = wx.StaticBoxSizer(graph_box, wx.VERTICAL)
+    def _create_stats_tab(self, panel):
+        """Create statistics tab"""
+        import wx
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Create a container panel for the plot
-        self.graph_panel = wx.Panel(panel)
-        self.graph_panel.SetMinSize(wx.Size(950, 350))
-        graph_panel_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.graph_panel.SetSizer(graph_panel_sizer)
-        
-        # PlotCanvas will be created on first update
-        self.plot_canvas = None
-        
-        graph_sizer.Add(self.graph_panel, 1, wx.EXPAND | wx.ALL, 5)
+        # Statistics display
+        stats_box = wx.StaticBox(panel, label="Test Statistics (mm)")
+        stats_sizer = wx.StaticBoxSizer(stats_box, wx.VERTICAL)
 
-        main_sizer.Add(graph_sizer, 1, wx.EXPAND | wx.ALL, 10)
+        # Mean errors
+        mean_label = wx.StaticText(panel, label="Mean Error:")
+        mean_label.SetFont(self.bold_font)
+        stats_sizer.Add(mean_label, 0, wx.LEFT | wx.TOP, 3)
 
-        # === Status Bar ===
-        self.CreateStatusBar()
-        self.SetStatusText("Ready - Configure EKF and start test")
+        mean_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.mean_n = wx.StaticText(panel, label="N:---", size=(55, -1))
+        self.mean_e = wx.StaticText(panel, label="E:---", size=(55, -1))
+        self.mean_d = wx.StaticText(panel, label="D:---", size=(55, -1))
+        self.mean_h = wx.StaticText(panel, label="H:---", size=(55, -1))
+        for t in [self.mean_n, self.mean_e, self.mean_d, self.mean_h]:
+            t.SetFont(self.mono_font)
+        mean_row.Add(self.mean_n, 1)
+        mean_row.Add(self.mean_e, 1)
+        mean_row.Add(self.mean_d, 1)
+        mean_row.Add(self.mean_h, 1)
+        stats_sizer.Add(mean_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 3)
 
-        panel.SetSizer(main_sizer)
-        
-        # Defer PlotCanvas creation until after window is fully shown
-        wx.CallLater(100, self._create_plot_canvas)
+        # RMS errors
+        rms_label = wx.StaticText(panel, label="RMS Error:")
+        rms_label.SetFont(self.bold_font)
+        stats_sizer.Add(rms_label, 0, wx.LEFT | wx.TOP, 3)
 
-    def _create_plot_canvas(self):
-        """Create PlotCanvas after window is shown"""
-        if self.plot_canvas is not None:
-            return
-        try:
-            self.plot_canvas = wxplot.PlotCanvas(self.graph_panel)
-            self.plot_canvas.enableGrid = True
-            self.plot_canvas.enableLegend = True
-            self.plot_canvas.fontSizeLegend = 8
-            self.graph_panel.GetSizer().Add(self.plot_canvas, 1, wx.EXPAND)
-            self.graph_panel.Layout()
-        except Exception as e:
-            print("Failed to create PlotCanvas: %s" % e)
-            self.plot_canvas = None
+        rms_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.rms_n = wx.StaticText(panel, label="N:---", size=(55, -1))
+        self.rms_e = wx.StaticText(panel, label="E:---", size=(55, -1))
+        self.rms_d = wx.StaticText(panel, label="D:---", size=(55, -1))
+        self.rms_h = wx.StaticText(panel, label="H:---", size=(55, -1))
+        for t in [self.rms_n, self.rms_e, self.rms_d, self.rms_h]:
+            t.SetFont(self.mono_font)
+        rms_row.Add(self.rms_n, 1)
+        rms_row.Add(self.rms_e, 1)
+        rms_row.Add(self.rms_d, 1)
+        rms_row.Add(self.rms_h, 1)
+        stats_sizer.Add(rms_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 3)
+
+        # Max errors
+        max_label = wx.StaticText(panel, label="Max Error:")
+        max_label.SetFont(self.bold_font)
+        stats_sizer.Add(max_label, 0, wx.LEFT | wx.TOP, 3)
+
+        max_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.max_n = wx.StaticText(panel, label="N:---", size=(55, -1))
+        self.max_e = wx.StaticText(panel, label="E:---", size=(55, -1))
+        self.max_d = wx.StaticText(panel, label="D:---", size=(55, -1))
+        self.max_h = wx.StaticText(panel, label="H:---", size=(55, -1))
+        for t in [self.max_n, self.max_e, self.max_d, self.max_h]:
+            t.SetFont(self.mono_font)
+        max_row.Add(self.max_n, 1)
+        max_row.Add(self.max_e, 1)
+        max_row.Add(self.max_d, 1)
+        max_row.Add(self.max_h, 1)
+        stats_sizer.Add(max_row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 3)
+
+        sizer.Add(stats_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
+        panel.SetSizer(sizer)
 
     def _on_timer(self, event):
         """Process commands from main module"""
@@ -295,138 +355,90 @@ class UWBTestFrame(wx.Frame):
 
     def _update_display(self, data):
         """Update display with new data"""
+        import wx
+        
         # Update status
         if data['testing']:
-            self.status_text.SetLabel("Status: TESTING")
+            self.status_text.SetLabel("TESTING")
             self.status_text.SetForegroundColour(wx.Colour(200, 0, 0))
             self.start_btn.Enable(False)
             self.stop_btn.Enable(True)
         else:
-            self.status_text.SetLabel("Status: IDLE")
+            self.status_text.SetLabel("IDLE")
             self.status_text.SetForegroundColour(wx.Colour(0, 100, 0))
             self.start_btn.Enable(True)
             self.stop_btn.Enable(False)
 
-        self.elapsed_text.SetLabel("Elapsed: %.1f s" % data['elapsed'])
-        self.samples_text.SetLabel("Samples: %d" % data['sample_count'])
+        self.elapsed_text.SetLabel("%.1fs" % data['elapsed'])
+        self.samples_text.SetLabel("%d smp" % data['sample_count'])
 
-        fix_names = {0: "No GPS", 1: "No Fix", 2: "2D", 3: "3D", 
-                     4: "DGPS", 5: "Float", 6: "Fixed"}
+        fix_names = {0: "No", 1: "No", 2: "2D", 3: "3D", 4: "DG", 5: "Flt", 6: "Fix"}
         rtk_color = wx.Colour(0, 128, 0) if data['rtk_fix'] >= 5 else wx.Colour(200, 0, 0)
-        self.rtk_text.SetLabel("RTK: %s (%d sats)" % (
-            fix_names.get(data['rtk_fix'], '?'), data['rtk_sats']))
+        self.rtk_text.SetLabel("%s %dsat" % (fix_names.get(data['rtk_fix'], '?'), data['rtk_sats']))
         self.rtk_text.SetForegroundColour(rtk_color)
 
         # Update error display
         if data['err_n_mm'] is not None:
-            self.err_n_text.SetLabel("N: %+.1f mm" % data['err_n_mm'])
-            self.err_e_text.SetLabel("E: %+.1f mm" % data['err_e_mm'])
-            self.err_d_text.SetLabel("D: %+.1f mm" % data['err_d_mm'])
-            self.err_horiz_text.SetLabel("Horiz: %.1f mm" % data['err_horiz_mm'])
-            self.err_total_text.SetLabel("Total: %.1f mm" % data['err_total_mm'])
-        else:
-            for txt in [self.err_n_text, self.err_e_text, self.err_d_text,
-                       self.err_horiz_text, self.err_total_text]:
-                txt.SetLabel(txt.GetLabel().split(':')[0] + ": --- mm")
+            self.err_n_text.SetLabel("N:%+.0f" % data['err_n_mm'])
+            self.err_e_text.SetLabel("E:%+.0f" % data['err_e_mm'])
+            self.err_d_text.SetLabel("D:%+.0f" % data['err_d_mm'])
+            self.err_horiz_text.SetLabel("H:%.0f" % data['err_horiz_mm'])
+            self.err_total_text.SetLabel("T:%.0f" % data['err_total_mm'])
 
         # Update config display
-        params = data['params']
-        if params['gps_ctrl'] >= 0:
+        params = data.get('params', {})
+        if params.get('gps_ctrl', -1) >= 0:
             self.gps_ctrl_spin.SetValue(int(params['gps_ctrl']))
-        if params['uwbb_ctrl'] >= 0:
+        if params.get('uwbb_ctrl', -1) >= 0:
             self.uwbb_check.SetValue(int(params['uwbb_ctrl']) > 0)
-        if params['uwbt_ctrl'] >= 0:
+        if params.get('uwbt_ctrl', -1) >= 0:
             self.uwbt_check.SetValue(int(params['uwbt_ctrl']) > 0)
-        if params['hgt_ref'] >= 0:
+        if params.get('hgt_ref', -1) >= 0:
             self.hgt_choice.SetSelection(int(params['hgt_ref']))
 
-        # Update graph
-        self._update_graph(data['graph_samples'])
-
-    def _update_graph(self, samples):
-        """Update error graph"""
-        if self.plot_canvas is None:
-            return
-        if len(samples) == 0:
-            return
-
-        times = [s['time'] for s in samples]
-        err_n = [s['err_n'] for s in samples]
-        err_e = [s['err_e'] for s in samples]
-        err_d = [s['err_d'] for s in samples]
-        err_horiz = [s['err_horiz'] for s in samples]
-
-        lines = []
-
-        # Create plot lines
-        if len(times) > 1:
-            data_n = list(zip(times, err_n))
-            data_e = list(zip(times, err_e))
-            data_d = list(zip(times, err_d))
-            data_h = list(zip(times, err_horiz))
-
-            lines.append(wxplot.PolyLine(data_n, colour='red', width=1, legend='N'))
-            lines.append(wxplot.PolyLine(data_e, colour='green', width=1, legend='E'))
-            lines.append(wxplot.PolyLine(data_d, colour='blue', width=1, legend='D'))
-            lines.append(wxplot.PolyLine(data_h, colour='black', width=2, legend='Horiz'))
-
-            gc = wxplot.PlotGraphics(lines, 'Error vs Time', 'Time (s)', 'Error (mm)')
-            
-            # Auto-scale Y axis
-            all_errors = err_n + err_e + err_d + err_horiz
-            y_max = max(abs(min(all_errors)), abs(max(all_errors)), 100) * 1.1
-            
-            try:
-                self.plot_canvas.Draw(gc, xAxis=(times[0], times[-1]), yAxis=(-y_max, y_max))
-            except Exception:
-                pass
+        # Update stats
+        stats = data.get('stats', {})
+        if stats:
+            if 'mean_n' in stats:
+                self.mean_n.SetLabel("N:%.0f" % (stats['mean_n'] * 1000))
+                self.mean_e.SetLabel("E:%.0f" % (stats['mean_e'] * 1000))
+                self.mean_d.SetLabel("D:%.0f" % (stats['mean_d'] * 1000))
+                self.mean_h.SetLabel("H:%.0f" % (stats['mean_h'] * 1000))
+            if 'rms_n' in stats:
+                self.rms_n.SetLabel("N:%.0f" % (stats['rms_n'] * 1000))
+                self.rms_e.SetLabel("E:%.0f" % (stats['rms_e'] * 1000))
+                self.rms_d.SetLabel("D:%.0f" % (stats['rms_d'] * 1000))
+                self.rms_h.SetLabel("H:%.0f" % (stats['rms_h'] * 1000))
+            if 'max_n' in stats:
+                self.max_n.SetLabel("N:%.0f" % (stats['max_n'] * 1000))
+                self.max_e.SetLabel("E:%.0f" % (stats['max_e'] * 1000))
+                self.max_d.SetLabel("D:%.0f" % (stats['max_d'] * 1000))
+                self.max_h.SetLabel("H:%.0f" % (stats['max_h'] * 1000))
 
     def _on_start(self, event):
-        """Start test button"""
         self.data_queue.put(('start', None))
 
     def _on_stop(self, event):
-        """Stop test button"""
         self.data_queue.put(('stop', None))
 
     def _on_analyze(self, event):
-        """Analyze button"""
         self.data_queue.put(('analyze', None))
 
+    def _on_save(self, event):
+        import wx
+        dlg = wx.FileDialog(self, "Save", wildcard="JSON (*.json)|*.json|CSV (*.csv)|*.csv",
+                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+        if dlg.ShowModal() == wx.ID_OK:
+            self.data_queue.put(('save', dlg.GetPath()))
+        dlg.Destroy()
+
     def _on_apply_config(self, event):
-        """Apply configuration"""
-        # GPS Control
         self.data_queue.put(('config', ['gps', str(self.gps_ctrl_spin.GetValue())]))
-        
-        # UWB Beacon
         self.data_queue.put(('config', ['uwb_beacon', '1' if self.uwbb_check.GetValue() else '0']))
-        
-        # UWB Tag
         self.data_queue.put(('config', ['uwb_tag', '1' if self.uwbt_check.GetValue() else '0']))
-        
-        # Height Reference
         self.data_queue.put(('config', ['height', str(self.hgt_choice.GetSelection())]))
-        
-        self.SetStatusText("Configuration applied")
-
-    def _on_save_json(self, event):
-        """Save as JSON"""
-        dlg = wx.FileDialog(self, "Save Test Data", wildcard="JSON files (*.json)|*.json",
-                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
-        if dlg.ShowModal() == wx.ID_OK:
-            self.data_queue.put(('save', dlg.GetPath()))
-        dlg.Destroy()
-
-    def _on_save_csv(self, event):
-        """Save as CSV"""
-        dlg = wx.FileDialog(self, "Save Test Data", wildcard="CSV files (*.csv)|*.csv",
-                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
-        if dlg.ShowModal() == wx.ID_OK:
-            self.data_queue.put(('save', dlg.GetPath()))
-        dlg.Destroy()
 
     def _on_close(self, event):
-        """Window closing"""
         self.timer.Stop()
         self.data_queue.put(('closed', None))
         self.Destroy()

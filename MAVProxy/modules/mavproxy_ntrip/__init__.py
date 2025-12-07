@@ -26,13 +26,15 @@ class NtripModule(mp_module.MPModule):
              ('sendalllinks', bool, False),
              ('frag_drop_pct', float, 0),
              ('sendmul', int, 1),
-             ('autostart', bool, False)])
+             ('autostart', bool, False),
+             ('gui', bool, True)])
         self.add_command('ntrip', self.cmd_ntrip, 'NTRIP control',
                          ["<status>",
                           "<start>",
                           "<stop>",
                           "<save>",
                           "<load>",
+                          "<gui>",
                           "set (NTRIPSETTING)"])
         
         # Config file path
@@ -52,6 +54,10 @@ class NtripModule(mp_module.MPModule):
         self.id_counts = {}
         self.last_by_id = {}
         
+        # GUI
+        self.gui = None
+        self.last_gui_update = 0
+        
         # Auto-load saved settings
         self._load_settings()
         
@@ -59,6 +65,56 @@ class NtripModule(mp_module.MPModule):
         if self.ntrip_settings.autostart:
             self.start_pending = True
             print("NTRIP: autostart enabled, waiting for position")
+        
+        # Start GUI if enabled
+        if self.ntrip_settings.gui:
+            self._start_gui()
+
+    def _start_gui(self):
+        """Start the GUI"""
+        # Check if GUI already exists and is alive
+        if self.gui is not None and self.gui.is_alive():
+            return
+        try:
+            from MAVProxy.modules.mavproxy_ntrip import ntrip_gui
+            self.gui = ntrip_gui.NtripGUI(self)
+        except Exception as e:
+            print("NTRIP GUI error: %s" % e)
+            import traceback
+            traceback.print_exc()
+
+    def _update_gui(self):
+        """Send status update to GUI"""
+        if self.gui is None or not self.gui.is_alive():
+            return
+        
+        now = time.time()
+        if now - self.last_gui_update < 0.2:  # 5 Hz max
+            return
+        self.last_gui_update = now
+        
+        data = {
+            'connected': self.ntrip is not None,
+            'pending': self.start_pending,
+            'pkt_count': self.pkt_count,
+            'rate': self.rate,
+            'last_pkt': self.last_pkt,
+            'pos': self.pos,
+            'caster': self.ntrip_settings.caster,
+            'port': self.ntrip_settings.port,
+            'mountpoint': self.ntrip_settings.mountpoint,
+            'settings': {
+                'caster': self.ntrip_settings.caster,
+                'port': self.ntrip_settings.port,
+                'mountpoint': self.ntrip_settings.mountpoint,
+                'username': self.ntrip_settings.username,
+                'password': self.ntrip_settings.password,
+                'autostart': self.ntrip_settings.autostart,
+                'sendalllinks': self.ntrip_settings.sendalllinks,
+                'sendmul': self.ntrip_settings.sendmul,
+            }
+        }
+        self.gui.update_data(data)
 
     def mavlink_packet(self, msg):
         '''handle an incoming mavlink packet'''
@@ -77,6 +133,9 @@ class NtripModule(mp_module.MPModule):
 
     def idle_task(self):
         '''called on idle'''
+        # Update GUI
+        self._update_gui()
+        
         if self.start_pending and self.ntrip is None and self.pos is not None:
             self.cmd_start()
         if self.ntrip is None:
@@ -149,7 +208,7 @@ class NtripModule(mp_module.MPModule):
     def cmd_ntrip(self, args):
         '''ntrip command handling'''
         if len(args) <= 0:
-            print("Usage: ntrip <start|stop|status|save|load|set>")
+            print("Usage: ntrip <start|stop|status|save|load|gui|set>")
             return
         if args[0] == "start":
             self.cmd_start()
@@ -163,6 +222,8 @@ class NtripModule(mp_module.MPModule):
         elif args[0] == "load":
             self._load_settings()
             print("NTRIP settings loaded")
+        elif args[0] == "gui":
+            self._start_gui()
         elif args[0] == "set":
             self.ntrip_settings.command(args[1:])
 
@@ -237,6 +298,11 @@ class NtripModule(mp_module.MPModule):
                     setattr(self.ntrip_settings, key, value)
         except Exception as e:
             print("Failed to load NTRIP settings: %s" % e)
+
+    def unload(self):
+        '''Called when module is unloaded'''
+        if self.gui is not None:
+            self.gui.close()
 
 
 def init(mpstate):
